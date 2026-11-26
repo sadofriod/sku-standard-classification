@@ -1,0 +1,44 @@
+{
+  "name": "sku-standard-classification",
+  "version": "1.0.0",
+  "private": false,
+  "type": "module",
+  "description": "Standard taxonomy classification + template-constrained attribute extraction for product SKU tables",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "sample": "bun scripts/make-sample.ts ./data/sample",
+    "analyze": "bun scripts/analyze.ts ./data/sample",
+    "pipeline": "bun src/pipeline.ts --data-root ./data/sample --out ./out --authority catalog",
+    "pipeline:reviewed": "bun src/pipeline.ts --data-root ./data/sample --out ./out-reviewed --authority reviewed",
+    "extract": "bun src/llm/extract-llm.ts --data-root ./data/sample --out ./out-llm --batch 8 --concurrency 4",
+    "emit": "bun src/emit-final.ts --data-root ./data/sample --llm ./out-llm/llm-rows.json --out ./out-final",
+    "tiers": "bun scripts/confidence-tiers.ts --long ./out-final/属性明细_长表.csv --emit 0.95",
+    "annotate": "bun scripts/annotate.ts --data-root ./data/sample --out ./out-label --n 200",
+    "validate": "bun scripts/validate-deliverable.ts ./data/sample ./out-final",
+    "corpus": "bun src/graphrag/make-corpus.ts ./data/sample ./out/corpus",
+    "graph:build": "bun src/graphrag/build.ts --corpus ./out/corpus --namespace sku-sample --limit 3",
+    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:push": "prisma db push --schema prisma/schema.prisma",
+    "typecheck": "tsc -p tsconfig.check.json --noEmit"
+  },
+  "dependencies": {
+    "@ashes_born/graph-rag-ts": "^0.1.30",
+    "csv-stringify": "^6.9.0",
+    "xlsx": "^0.18.5",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.5",
+    "@types/node": "^26.6.11",
+    "prisma": "^6.19.3",
+    "typescript": "^7.0.2"
+  },
+  "allowScripts": {
+    "prisma@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "@prisma/client@6.19.3": true
+  }
+}

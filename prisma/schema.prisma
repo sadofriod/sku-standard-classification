@@ -1,0 +1,173 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model RAGParent {
+  id        String   @id @default(cuid())
+  namespace String   @map("namespace")
+  title     String?  @db.VarChar(255)
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  children  RAGChild[]
+  edges     RAGGraphEdge[]
+  edgeContributions RAGEdgeContribution[]
+  claims    RAGClaim[]
+
+  @@index([namespace])
+  @@map("rag_parents")
+}
+
+model RAGChild {
+  id        String   @id @default(cuid())
+  namespace String   @map("namespace")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  parentId  String   @map("parent_id")
+  parent    RAGParent @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  embedding Unsupported("vector(1024)")
+  ftsTokens Unsupported("tsvector") @map("fts_tokens")
+  claims    RAGClaim[]
+
+  @@index([namespace])
+  @@index([parentId])
+  @@map("rag_children")
+}
+
+model RAGEntity {
+  id            String          @id @default(uuid())
+  namespace     String          @map("namespace")
+  name          String          @db.VarChar(200)
+  description   String?         @db.Text
+  createdAt     DateTime        @default(now()) @map("created_at")
+  sourceEdges   RAGGraphEdge[]  @relation("SourceEntity")
+  targetEdges   RAGGraphEdge[]  @relation("TargetEntity")
+  claimSubjects RAGClaim[]      @relation("ClaimSubject")
+  claimObjects  RAGClaim[]      @relation("ClaimObject")
+
+  @@unique([namespace, name])
+  @@index([namespace])
+  @@map("rag_entities")
+}
+
+model RAGGraphEdge {
+  id               String             @id @default(uuid())
+  namespace        String             @map("namespace")
+  parentId         String?            @map("parent_id")
+  parent           RAGParent?         @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  sourceEntityId   String             @map("source_entity_id")
+  targetEntityId   String             @map("target_entity_id")
+  sourceEntity     RAGEntity          @relation("SourceEntity", fields: [sourceEntityId], references: [id], onDelete: Cascade)
+  targetEntity     RAGEntity          @relation("TargetEntity", fields: [targetEntityId], references: [id], onDelete: Cascade)
+  relationshipDesc String             @map("relationship_desc") @db.Text
+  weight           Int                @default(1)
+  communitySummaryId String?          @map("community_summary_id")
+  communitySummary RAGCommunitySummary? @relation(fields: [communitySummaryId], references: [id], onDelete: SetNull)
+  createdAt        DateTime           @default(now()) @map("created_at")
+  contributions    RAGEdgeContribution[]
+
+  @@index([namespace])
+  @@index([parentId])
+  @@index([sourceEntityId])
+  @@index([targetEntityId])
+  @@index([communitySummaryId])
+  @@unique([namespace, sourceEntityId, targetEntityId], map: "unique_namespace_source_target")
+  @@map("rag_graph_edges")
+}
+
+model RAGEdgeContribution {
+  namespace        String
+  edgeId           String       @map("edge_id")
+  parentId         String       @map("parent_id")
+  weight           Int
+  relationshipDesc String       @map("relationship_desc") @db.Text
+  edge             RAGGraphEdge @relation(fields: [edgeId], references: [id], onDelete: Cascade)
+  parent           RAGParent    @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  @@id([edgeId, parentId])
+  @@index([namespace, parentId])
+  @@map("rag_edge_contributions")
+}
+
+model RAGCommunitySummary {
+  id               String        @id @default(uuid())
+  namespace        String        @map("namespace")
+  communityName    String        @map("community_name") @db.VarChar(100)
+  summaryContent   String        @map("summary_content") @db.Text
+  members          String[]      @default([])
+  level            Int           @default(0)
+  parentCommunityId String?      @map("parent_community_id")
+  parentCommunity RAGCommunitySummary? @relation("CommunityHierarchy", fields: [parentCommunityId], references: [id], onDelete: SetNull)
+  childCommunities RAGCommunitySummary[] @relation("CommunityHierarchy")
+  /// Stores the runtime-generated SHA-256 fingerprint as a 64-character string, or NULL for legacy rows until regeneration.
+  contentFingerprint String?      @map("content_fingerprint") @db.Char(64)
+  summaryEmbedding Unsupported("vector(1024)")? @map("summary_embedding")
+  edges            RAGGraphEdge[]
+  claims           RAGClaim[]
+  createdAt        DateTime      @default(now()) @map("created_at")
+
+  @@index([namespace])
+  @@index([communityName])
+  @@index([parentCommunityId])
+  @@index([namespace, level])
+  @@map("rag_community_summaries")
+}
+
+model RAGClaim {
+  id                 String               @id @default(uuid())
+  namespace          String               @map("namespace")
+  subjectEntityId    String               @map("subject_entity_id")
+  subjectEntity      RAGEntity            @relation("ClaimSubject", fields: [subjectEntityId], references: [id], onDelete: Cascade)
+  objectEntityId     String?              @map("object_entity_id")
+  objectEntity       RAGEntity?           @relation("ClaimObject", fields: [objectEntityId], references: [id], onDelete: SetNull)
+  description        String               @db.Text
+  descriptionHash    String               @map("description_hash") @db.Char(64)
+  sourceParentId     String?              @map("source_parent_id")
+  sourceParent       RAGParent?           @relation(fields: [sourceParentId], references: [id], onDelete: SetNull)
+  sourceChunkId      String?              @map("source_chunk_id")
+  sourceChunk        RAGChild?            @relation(fields: [sourceChunkId], references: [id], onDelete: SetNull)
+  communitySummaryId String?              @map("community_summary_id")
+  communitySummary   RAGCommunitySummary? @relation(fields: [communitySummaryId], references: [id], onDelete: SetNull)
+  createdAt          DateTime             @default(now()) @map("created_at")
+
+  @@index([namespace])
+  @@index([subjectEntityId])
+  @@index([objectEntityId])
+  @@index([sourceParentId])
+  @@index([communitySummaryId])
+  @@unique([namespace, subjectEntityId, descriptionHash])
+  @@map("rag_claims")
+}
+
+model GenerationJob {
+  id        String    @id @default(uuid())
+  namespace String    @map("namespace")
+  kind      String    @map("kind")
+  title     String?   @map("title") @db.VarChar(255)
+  state     String    @map("state")
+  phase     String?   @map("phase")
+  error     String?   @map("error") @db.Text
+  createdAt DateTime  @default(now()) @map("created_at")
+  finishedAt DateTime? @map("finished_at")
+
+  @@index([namespace])
+  @@index([kind])
+  @@index([state])
+  @@map("generation_jobs")
+}
+
+model RAGGlobalQueryCache {
+  namespace String
+  cacheKey  String   @map("cache_key") @db.Char(64)
+  result    Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([namespace, cacheKey])
+  @@map("rag_global_query_cache")
+}

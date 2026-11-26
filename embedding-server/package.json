@@ -1,0 +1,9 @@
+{
+  "name": "embedding-server",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "dependencies": {
+    "node-llama-cpp": "3.22.4"
+  }
+}

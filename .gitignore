@@ -1,0 +1,15 @@
+node_modules/
+out/
+out-final/
+out-label/
+out-infer/
+out-llm/
+out-reviewed/
+report/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+data/dataset/
+data/raw/
