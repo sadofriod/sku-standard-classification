@@ -22,7 +22,8 @@
     "graph:build": "bun src/graphrag/build.ts --corpus ./out/corpus --namespace sku-sample --limit 3",
     "db:generate": "prisma generate --schema prisma/schema.prisma",
     "db:push": "prisma db push --schema prisma/schema.prisma",
-    "typecheck": "tsc -p tsconfig.check.json --noEmit"
+    "typecheck": "tsc -p tsconfig.check.json --noEmit",
+    "inference": "bun scripts/inference-hit-rate.ts --long ./out-final/属性明细_长表_v6.csv"
   },
   "dependencies": {
     "@ashes_born/graph-rag-ts": "^0.1.30",
